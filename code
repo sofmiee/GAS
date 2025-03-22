@@ -27,14 +27,14 @@ class Car {
         return tank_capacity - current_fuel;
     }
     //метод для проверки вместимости желаемого объема топлива
-    public double check_refuel(double amount) {
+    public double refuel(double amount) {
         if (current_fuel + amount <= tank_capacity) {
             current_fuel += amount; //если помещается, то заливаем топливо
-            return 0;
         }else{
-            current_fuel += tank_capacity - current_fuel; //если не помещается, тогда вливаем столько, сколько вместимся, и return кол-во литров, которые залили
-            return tank_capacity - current_fuel;
+            amount = tank_capacity - current_fuel;
+            current_fuel = tank_capacity; //если не помещается, тогда вливаем столько, сколько вместимся, и return кол-во литров, которые залили
         }
+        return amount;
     }
 }
 
@@ -75,7 +75,7 @@ class Gas_station {
     int time_for_fuel;
 
     //конструктор, принимаюищий кол-во колонок и начальный запаса топлива
-    public Gas_station(int num_pumps, double init_fuel) {
+    public Gas_station(int num_pumps, double init_fuel, Scanner scanner) {
         queue = new LinkedList<>(); //создаем ссылочный список с интрефейсом очереди
         pumps = new ArrayList<>();
         time_for_fuel = 1440; //каждые 1440 минут (сутки) запас топлива на станции будет пополняться
@@ -135,10 +135,11 @@ class Simulation {
     Gas_station gas_station; //создаем экземпляр станции
     int time; //реальное время
     Random random;
-
+    private Scanner scanner;
+    
     //конструктор
-    public Simulation(int num_pumps, double init_fuel) {
-        gas_station = new Gas_station(num_pumps, init_fuel);
+    public Simulation(int num_pumps, double init_fuel, Scanner scanner) {
+        gas_station = new Gas_station(num_pumps, init_fuel, scanner);
         time = 0;
         random = new Random();
     }
@@ -170,16 +171,12 @@ class Simulation {
             if (pump.is_occupied) {
                 Car car = pump.current_car; //кладем в переменную car машину, которая находится в данный момент у колонки
                 double amount = Math.min(pump.fuel_speed, car.wanted_fuel); // если желаемый объем больше скорости заправки, разделяем его на части
-                if (car.check_refuel(amount) == 0){ //если топливо помещается, тогда вычитыем эту часть из желаемого объема и из запаса станции
-                    car.wanted_fuel -= amount;
-                    gas_station.fuel_reserve -= amount;
-                    pump.time_occupied++;
-                }else{ //если не поместилось, тогда вычитаем то, что залили, из запаса станции и останавливаем заправку
-                    gas_station.fuel_reserve -= car.check_refuel(amount);
-                    pump.time_occupied++;
-                    pump.stop_refuel();
-                }
-                if (car.wanted_fuel == 0) { //это остановка заправки, когда весь желаемый объем залили
+                
+                amount = car.refuel(amount); //сколько поместилось в бак
+                car.wanted_fuel -= amount; //вычитаем заправленную часть из желаемой
+                gas_station.fuel_reserve -= amount; //вычитаем заправленную часть из общего запаса топлива на заправке
+                pump.time_occupied++;
+                if (amount == 0 || car.wanted_fuel == 0) { //если ничего не заправили (не поместилось) или если все заправили сколько хотели, закнчиваем заправку
                     pump.stop_refuel();
                 }
             }
@@ -198,10 +195,12 @@ public class GAS {
         Double init_fuel = scanner.nextDouble(); //запрашиваем запас топлива на станции
         System.out.println("Введите время работы: ");
         int duration = scanner.nextInt(); //и время работы симуляции в минутах
-        
+
         // Создаем объект Simulation по запросам пользователя
-        Simulation simulation = new Simulation(num_pumps, init_fuel);
+        Simulation simulation = new Simulation(num_pumps, init_fuel, scanner);
         // Запускаем симуляцию
         simulation.run(duration);
+        
+        scanner.close();
     }
 }
